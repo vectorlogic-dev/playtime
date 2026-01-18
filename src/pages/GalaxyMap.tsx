@@ -14,7 +14,6 @@ import {
   devPlayerId,
   devPlayerState,
   devFleets,
-  type SystemYields,
 } from '@/game/devGalaxy';
 
 export function GalaxyMap() {
@@ -39,6 +38,7 @@ export function GalaxyMap() {
   const [user, setUser] = useState<any>(null);
   const [fleet, setFleet] = useState<PlayerFleet | null>(devFleets[0] ?? null);
   const [nowMs, setNowMs] = useState(() => Date.now());
+  const etaLogRef = React.useRef(false);
 
   useEffect(() => {
     if (!supabase) {
@@ -220,6 +220,7 @@ export function GalaxyMap() {
     return () => cancelAnimationFrame(frame);
   }, [fleet?.inTransit]);
 
+
   useEffect(() => {
     if (!fleet?.inTransit || !fleet.arriveAt || !fleet.toSystemId) return;
     if (nowMs < fleet.arriveAt) return;
@@ -233,6 +234,23 @@ export function GalaxyMap() {
       arriveAt: undefined,
     });
   }, [fleet, nowMs]);
+
+  useEffect(() => {
+    if (!fleet?.inTransit || !fleet.arriveAt) {
+      etaLogRef.current = false;
+      return;
+    }
+    if (!etaLogRef.current) {
+      console.log('Fleet ETA debug', {
+        now: nowMs,
+        departAt: fleet.departAt,
+        arriveAt: fleet.arriveAt,
+        remainingMs: Math.max(0, fleet.arriveAt - nowMs),
+      });
+      etaLogRef.current = true;
+    }
+  }, [fleet?.inTransit, fleet?.arriveAt, fleet?.departAt, nowMs]);
+
 
   if (loading) {
     return (
@@ -283,9 +301,7 @@ export function GalaxyMap() {
   }
 
   const selectedSystem = selectedSystemId
-    ? (gameState.systems.find((system) => system.id === selectedSystemId) as
-        | (System & { yields?: SystemYields })
-        | undefined)
+    ? gameState.systems.find((system) => system.id === selectedSystemId)
     : undefined;
 
   const isOwnedByPlayer = selectedSystem
@@ -311,7 +327,7 @@ export function GalaxyMap() {
         name: selectedSystem.name,
         x: selectedSystem.x,
         y: selectedSystem.y,
-        ownerStatus: isOwnedByPlayer ? 'Owned' : 'Neutral',
+        ownerStatus: (isOwnedByPlayer ? 'Owned' : 'Neutral') as 'Owned' | 'Neutral',
         yields: selectedSystem.yields ?? { energy: 0, minerals: 0, science: 0 },
         planetCount: selectedSystem.planetCount ?? 0,
         fleetStrength: fleetAtSystem ? fleetAtSystem.strength : null,
@@ -325,6 +341,14 @@ export function GalaxyMap() {
             : null,
       }
     : null;
+
+  const fleetStatusText = fleet?.inTransit && fleet.arriveAt
+    ? (() => {
+        const remainingMs = Math.max(0, fleet.arriveAt - nowMs);
+        const etaSec = Math.ceil(remainingMs / 1000);
+        return remainingMs === 0 ? 'Fleet: Arriving…' : `Fleet: In transit • ETA: ${etaSec}s`;
+      })()
+    : 'Fleet: Idle';
 
   const totalPlanets = gameState.systems.length;
   const ownedCount = gameState.ownership.filter(
@@ -351,7 +375,7 @@ export function GalaxyMap() {
             fontSize: '14px',
           }}
         >
-          Planets: {totalPlanets} • Owned: {ownedCount}
+          Planets: {totalPlanets} • Owned: {ownedCount} • {fleetStatusText}
         </div>
         <div style={{ position: 'relative', flex: 1 }}>
           <MapCanvas

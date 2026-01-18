@@ -1,0 +1,42 @@
+# Stellaris Lite (Current State)
+
+## Project Description
+A browser-based space strategy prototype built with React + TypeScript + Vite. It includes a galaxy map canvas, basic system info panels, and a local dev galaxy for offline use.
+
+## Current Features (Verified)
+- Galaxy map canvas with systems, hyperlanes, labels, and fleet markers.
+- Pan (drag), zoom (mouse wheel), and inertial scrolling on the map.
+- System selection via click; selected system is highlighted and shown in a side panel.
+- Local fleet movement between adjacent systems with ETA and in-transit animation.
+- Dev mode fallback when Supabase env vars are missing.
+- Supabase-backed auth (email/password) and galaxy list when env vars are provided.
+- Placeholder routes for System View and Empire View.
+
+## How to Run
+```bash
+npm install
+npm run dev
+```
+
+## Supabase Environment Variables (Optional)
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
+
+Behavior when missing:
+- The app runs in dev/offline mode.
+- The Lobby shows a Dev Mode panel with “Enter Dev Galaxy.”
+- GalaxyMap uses deterministic dev data from `src/game/devGalaxy.ts`.
+
+## Repo Structure (Brief)
+- `src/pages/`: route pages (Lobby, GalaxyMap, SystemView, Empire)
+- `src/components/`: UI components (MapCanvas, SystemPanel, FleetPanel)
+- `src/game/`: dev data and gameplay helpers (devGalaxy, galaxy generation, orders, mock tick)
+- `src/lib/`: types, RNG, and Supabase client wrapper
+
+## Known Limitations / TODO
+- Fleet movement is local UI state only (no persistence).
+- Tick/order processing is stubbed (`simulateTick` is a placeholder).
+- FleetPanel is not wired into any page.
+- SystemView and Empire routes are placeholders.
+- Types are inconsistent (`planetCount` vs `planets`, yields are dev-only).
+

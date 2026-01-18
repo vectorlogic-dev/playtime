@@ -8,6 +8,12 @@ export interface Galaxy {
   status: 'lobby' | 'active' | 'paused' | 'finished';
 }
 
+export interface SystemYields {
+  energy: number;
+  minerals: number;
+  science: number;
+}
+
 export interface System {
   id: string;
   galaxy_id: string;
@@ -15,9 +21,9 @@ export interface System {
   x: number;
   y: number;
   star_type: 'red_dwarf' | 'yellow' | 'blue_giant' | 'white_dwarf';
-  planets: number;
   planetCount: number;
   created_at: string;
+  yields?: SystemYields; // Optional, present in dev mode
 }
 
 export interface Lane {

@@ -182,6 +182,7 @@ export function MapCanvas({
       ctx.beginPath();
       ctx.arc(fx, fy, 5 / viewport.zoom, 0, Math.PI * 2);
       ctx.fill();
+
     }
 
     ctx.restore();

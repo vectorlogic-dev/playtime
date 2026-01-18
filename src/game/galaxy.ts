@@ -39,7 +39,7 @@ export function generateSystems(
       x: Math.random() * config.width,
       y: Math.random() * config.height,
       star_type: starTypes[Math.floor(Math.random() * starTypes.length)],
-      planets: Math.floor(Math.random() * 5) + 1,
+      planetCount: Math.floor(Math.random() * 5) + 1,
     });
   }
 

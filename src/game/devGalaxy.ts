@@ -14,22 +14,13 @@ const PLAYER_COLOR = '#4a9eff';
 const rng = new SeededRNG(SEED);
 const starTypes: System['star_type'][] = ['red_dwarf', 'yellow', 'blue_giant', 'white_dwarf'];
 
-export interface SystemYields {
-  energy: number;
-  minerals: number;
-  science: number;
-}
-
-export type DevSystem = System & { yields: SystemYields };
-
-const systems: DevSystem[] = Array.from({ length: SYSTEM_COUNT }, (_, index) => ({
+const systems: System[] = Array.from({ length: SYSTEM_COUNT }, (_, index) => ({
   id: `dev-system-${index + 1}`,
   galaxy_id: GALAXY_ID,
   name: `System ${index + 1}`,
   x: rng.float(0, WIDTH),
   y: rng.float(0, HEIGHT),
   star_type: rng.choice(starTypes),
-  planets: rng.range(1, 5),
   planetCount: rng.range(0, 6),
   created_at: CREATED_AT,
   yields: {

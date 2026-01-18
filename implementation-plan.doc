@@ -1,0 +1,109 @@
+# Implementation Plan (Current State + Refactor Roadmap)
+
+## Current State Summary
+- Routing: `/` (Lobby), `/galaxy/:galaxyId` (GalaxyMap), `/galaxy/:galaxyId/system/:systemId` (SystemView placeholder), `/galaxy/:galaxyId/empire` (Empire placeholder) in `src/App.tsx`.
+- Supabase: Optional client in `src/lib/supabase.ts` gated by `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`. When missing, a one-time console warning is logged and the app runs in dev/offline mode.
+- Lobby (`src/pages/Lobby.tsx`):
+  - If Supabase is configured: email/password auth, session handling, galaxy list from `galaxies` table, and navigation to selected galaxy.
+  - If Supabase is missing: Dev Mode panel with “Enter Dev Galaxy” button (routes to `/galaxy/dev`).
+- Galaxy map (`src/pages/GalaxyMap.tsx`):
+  - Supabase mode: loads galaxy, systems, lanes, ownership, fleets, and player states from DB; centers viewport on first system.
+  - Dev mode: uses `devGalaxy`, `devSystems`, `devLanes`, `devOwnership`, `devPlayerState`, and `devFleets` from `src/game/devGalaxy.ts`.
+  - Viewport is `{ x, y, zoom }` and is controlled by `MapCanvas` via `onViewportChange`.
+  - Fleet selection + movement: clicking the fleet’s current system selects it; clicking an adjacent system starts local in-transit interpolation using `departAt/arriveAt` timestamps; ETA is shown in the system panel.
+  - Transit animation: `nowMs` is advanced via `requestAnimationFrame` only while a fleet is in transit; position interpolates in `MapCanvas`.
+  - Dev-only mock tick button (when `IS_DEV`) triggers `simulateTick`.
+  - One-time ETA debug log printed in console while in transit.
+- MapCanvas (`src/components/MapCanvas.tsx`):
+  - Renders lanes, systems, selection/highlight rings, system labels, and fleet markers on a `<canvas>`.
+  - Supports pan (pointer drag), zoom (mouse wheel), and inertia (momentum) after drag.
+  - Screen-to-world selection logic for clicking systems.
+- Panels:
+  - SystemPanel (`src/components/SystemPanel.tsx`) shows system stats, yields, and fleet status.
+  - FleetPanel (`src/components/FleetPanel.tsx`) exists but is not wired into any page.
+- Game utilities:
+  - `src/game/devGalaxy.ts`: deterministic dev data with seeded RNG, systems, lanes, ownership, and a single `PlayerFleet`.
+  - `src/game/galaxy.ts`: generic system/lane generation utilities and adjacency helpers (not wired in UI).
+  - `src/game/orders.ts`: order validation/creation helpers (not wired in UI).
+  - `src/game/mockTick.ts`: stub tick processing for dev (no real updates).
+
+## Known Issues / Tech Debt
+- Type inconsistencies:
+  - `System` includes both `planets` and `planetCount`; UI uses `planetCount` while generators may set `planets` only.
+  - `devGalaxy` adds `yields` on systems that are not in the base `System` type; GalaxyMap uses a type cast to access yields.
+  - `GameState.fleets` uses `Fleet` (DB shape), but local movement uses `PlayerFleet` with different fields.
+- Unused/placeholder components and routes:
+  - `FleetPanel` is unused; `SystemView` and `Empire` are placeholders.
+- Mock/console-only logic:
+  - `simulateTick` does not modify state; console logs are left in place.
+  - ETA debug logging in `GalaxyMap` is dev-only behavior but not gated by `IS_DEV`.
+- Performance/clarity:
+  - `MapCanvas` does `systems.find(...)` repeatedly per lane and per fleet on every draw.
+  - `canvas.width/height` is reset on each draw, which can be expensive and can clear internal state each frame.
+- Dev vs prod split:
+  - Dev data and production data paths diverge in `GalaxyMap` with conditional branches rather than a shared adapter layer.
+
+## Refactor & Cleanup Goals
+- Unify data types so UI and dev/prod data share a single system/fleet representation.
+- Replace type casts with explicit type definitions for system yields or move yields to a derived UI model.
+- Consolidate dev/prod data loading into a consistent adapter layer.
+- Remove or wire unused components and placeholder routes.
+- Normalize and document tick/order flow, or remove stubs if they’re out of scope.
+- Improve MapCanvas performance by precomputing lookup maps and controlling canvas sizing behavior.
+
+## Step-by-step Implementation Plan
+### Step 1: Type and data model alignment
+- Files: `src/lib/types.ts`, `src/game/devGalaxy.ts`, `src/pages/GalaxyMap.tsx`
+- Changes:
+  - Decide on a single `System` shape (`planetCount` vs `planets`, yields inclusion).
+  - Introduce a UI-specific `SystemViewModel` type if yields are dev-only.
+  - Align `PlayerFleet` and `Fleet` usage or add a shared fleet view model.
+- Validation:
+  - TypeScript build passes; GalaxyMap renders correctly in dev mode.
+
+### Step 2: Data loading adapter
+- Files: `src/pages/GalaxyMap.tsx`, new `src/game/loaders.ts` (or similar)
+- Changes:
+  - Create a loader that returns a unified `GameState` from either Supabase or dev data.
+  - Remove in-component branching when possible.
+- Validation:
+  - Dev mode still loads dev galaxy; Supabase mode still fetches from DB.
+
+### Step 3: UI cleanup and component wiring
+- Files: `src/components/FleetPanel.tsx`, `src/pages/GalaxyMap.tsx`, `src/pages/SystemView.tsx`, `src/pages/Empire.tsx`
+- Changes:
+  - Either wire `FleetPanel` into GalaxyMap or remove it if out of scope.
+  - Convert placeholder pages to “Not implemented” screens or remove routes if unused.
+- Validation:
+  - No dead routes; no unused component exports.
+
+### Step 4: Map rendering performance cleanup
+- Files: `src/components/MapCanvas.tsx`
+- Changes:
+  - Precompute system lookup map for lanes and fleets.
+  - Avoid resetting canvas size every draw; move resize to a `ResizeObserver` or a dimension effect.
+- Validation:
+  - Pan/zoom/fleet movement works smoothly; no visual regressions.
+
+### Step 5: Tick/order pipeline decision
+- Files: `src/game/mockTick.ts`, `src/game/orders.ts`, `src/pages/GalaxyMap.tsx`
+- Changes:
+  - Either implement a minimal local tick loop and order flow or remove stubs and document server-side requirements.
+  - Gate debug logging behind `IS_DEV`.
+- Validation:
+  - Mock tick behavior is deterministic and documented; console is clean in production.
+
+### Step 6: Documentation & tests
+- Files: `readme.doc`, `implementation-plan.doc`, optional tests folder
+- Changes:
+  - Update docs and add minimal tests for adjacency and fleet movement helpers.
+- Validation:
+  - Docs match behavior; tests pass.
+
+## Definition of Done
+- [ ] Types are consistent across dev and Supabase data paths.
+- [ ] GalaxyMap uses a single data-loading flow.
+- [ ] No unused components or placeholder routes remain without clear intent.
+- [ ] MapCanvas avoids per-frame O(n^2) lookups where possible.
+- [ ] Mock tick/order behavior is either implemented or removed and documented.
+- [ ] Docs describe actual behavior, setup, and limitations.
