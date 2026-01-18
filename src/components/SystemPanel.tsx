@@ -7,11 +7,13 @@ interface SystemPanelProps {
     x: number;
     y: number;
     ownerStatus: 'Owned' | 'Neutral';
+    fleetStrength?: number | null;
     yields: {
       energy: number;
       minerals: number;
       science: number;
     };
+    planetCount: number;
   };
 }
 
@@ -34,6 +36,14 @@ export function SystemPanel({ system }: SystemPanelProps) {
       </div>
       <div style={{ marginBottom: '16px', color: '#bbb' }}>
         Owner: {system.ownerStatus}
+      </div>
+      {system.fleetStrength !== null && system.fleetStrength !== undefined && (
+        <div style={{ marginBottom: '16px', color: '#bbb' }}>
+          Fleet present (Strength: {system.fleetStrength})
+        </div>
+      )}
+      <div style={{ marginBottom: '16px', color: '#bbb' }}>
+        Planets in system: {system.planetCount}
       </div>
 
       <div>

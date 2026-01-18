@@ -1,4 +1,4 @@
-import type { Galaxy, System, Lane, Ownership, PlayerState } from '@/lib/types';
+import type { Galaxy, System, Lane, Ownership, PlayerState, PlayerFleet } from '@/lib/types';
 import { SeededRNG } from '@/lib/rng';
 
 const GALAXY_ID = 'dev-galaxy';
@@ -30,6 +30,7 @@ const systems: DevSystem[] = Array.from({ length: SYSTEM_COUNT }, (_, index) => 
   y: rng.float(0, HEIGHT),
   star_type: rng.choice(starTypes),
   planets: rng.range(1, 5),
+  planetCount: rng.range(0, 6),
   created_at: CREATED_AT,
   yields: {
     energy: rng.range(2, 8),
@@ -54,6 +55,13 @@ const ownedSystems = systems
   .map((entry) => entry.system);
 
 const playerOwnedSystems = [homeSystem, ...ownedSystems];
+
+// Ensure player-owned systems have at least 2 planets
+playerOwnedSystems.forEach((system) => {
+  if (system.planetCount < 2) {
+    system.planetCount = 2;
+  }
+});
 
 export const devOwnership: Ownership[] = playerOwnedSystems.map((system) => ({
   id: `dev-ownership-${system.id}`,
@@ -114,3 +122,11 @@ export const devPlayerState: PlayerState = {
 export const devPlayerId = PLAYER_ID;
 export const devSystems = systems;
 export const devLanes = Array.from(lanePairs.values());
+export const devFleets: PlayerFleet[] = [
+  {
+    id: 'dev-fleet-1',
+    owner: 'player',
+    locationSystemId: homeSystem.id,
+    strength: 10,
+  },
+];

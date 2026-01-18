@@ -16,6 +16,7 @@ export interface System {
   y: number;
   star_type: 'red_dwarf' | 'yellow' | 'blue_giant' | 'white_dwarf';
   planets: number;
+  planetCount: number;
   created_at: string;
 }
 
@@ -43,6 +44,13 @@ export interface Fleet {
   ships: number;
   created_at: string;
 }
+
+export type PlayerFleet = {
+  id: string;
+  owner: 'player';
+  locationSystemId: string;
+  strength: number;
+};
 
 export interface PlayerState {
   id: string;

@@ -1,10 +1,11 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import type { System, Lane, Ownership, Viewport } from '@/lib/types';
+import type { System, Lane, Ownership, Viewport, PlayerFleet } from '@/lib/types';
 
 interface MapCanvasProps {
   systems: System[];
   lanes: Lane[];
   ownership: Ownership[];
+  fleets: PlayerFleet[];
   viewport: Viewport;
   onViewportChange: (viewport: Viewport) => void;
   onSystemSelect: (system: System | null) => void;
@@ -24,6 +25,7 @@ const SYSTEM_NEUTRAL_FILL = '#666';
 const SYSTEM_PLAYER_FILL = '#4a9eff';
 const SYSTEM_LABEL_COLOR = '#fff';
 const SELECTED_RING_COLOR = '#00ffff';
+const FLEET_MARKER_COLOR = '#ffffff';
 
 const DRAG_THRESHOLD_PX = 5;
 const INERTIA_DECAY = 0.92;
@@ -33,6 +35,7 @@ export function MapCanvas({
   systems,
   lanes,
   ownership,
+  fleets,
   viewport,
   onViewportChange,
   onSystemSelect,
@@ -60,6 +63,7 @@ export function MapCanvas({
 
   // Create ownership map for quick lookup
   const ownershipMap = new Map(ownership.map((o) => [o.system_id, o]));
+  const fleetsSafe = Array.isArray(fleets) ? fleets : [];
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
@@ -138,8 +142,29 @@ export function MapCanvas({
       ctx.fillText(system.name, system.x, system.y + SYSTEM_RADIUS + 5);
     }
 
+    // Draw fleets
+    for (const fleet of fleetsSafe) {
+      const system = systems.find((s) => s.id === fleet.locationSystemId);
+      if (!system) continue;
+      ctx.fillStyle = FLEET_MARKER_COLOR;
+      ctx.beginPath();
+      ctx.arc(system.x, system.y, 5 / viewport.zoom, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
     ctx.restore();
-  }, [systems, lanes, ownership, viewport, selectedSystemId, playerColor, playerId, highlightSystemIds, ownershipMap]);
+  }, [
+    systems,
+    lanes,
+    ownership,
+    fleetsSafe,
+    viewport,
+    selectedSystemId,
+    playerColor,
+    playerId,
+    highlightSystemIds,
+    ownershipMap,
+  ]);
 
   useEffect(() => {
     draw();

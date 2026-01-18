@@ -12,6 +12,7 @@ import {
   devOwnership,
   devPlayerId,
   devPlayerState,
+  devFleets,
   type SystemYields,
 } from '@/game/devGalaxy';
 
@@ -225,6 +226,11 @@ export function GalaxyMap() {
       )
     : false;
 
+  const fleetsForCanvas = supabase ? [] : devFleets;
+  const fleetAtSystem = selectedSystem
+    ? fleetsForCanvas.find((fleet) => fleet.locationSystemId === selectedSystem.id) || null
+    : null;
+
   const panelSystem = selectedSystem
     ? {
         id: selectedSystem.id,
@@ -233,6 +239,8 @@ export function GalaxyMap() {
         y: selectedSystem.y,
         ownerStatus: isOwnedByPlayer ? 'Owned' : 'Neutral',
         yields: selectedSystem.yields ?? { energy: 0, minerals: 0, science: 0 },
+        planetCount: selectedSystem.planetCount ?? 0,
+        fleetStrength: fleetAtSystem ? fleetAtSystem.strength : null,
       }
     : null;
 
@@ -268,6 +276,7 @@ export function GalaxyMap() {
             systems={gameState.systems}
             lanes={gameState.lanes}
             ownership={gameState.ownership}
+            fleets={fleetsForCanvas}
             viewport={viewport}
             onViewportChange={setViewport}
             onSystemSelect={handleSystemSelect}
