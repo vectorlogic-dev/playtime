@@ -8,6 +8,8 @@ interface SystemPanelProps {
     y: number;
     ownerStatus: 'Owned' | 'Neutral';
     fleetStrength?: number | null;
+    fleetPrompt?: boolean;
+    fleetStatus?: string | null;
     yields: {
       energy: number;
       minerals: number;
@@ -40,6 +42,14 @@ export function SystemPanel({ system }: SystemPanelProps) {
       {system.fleetStrength !== null && system.fleetStrength !== undefined && (
         <div style={{ marginBottom: '16px', color: '#bbb' }}>
           Fleet present (Strength: {system.fleetStrength})
+        </div>
+      )}
+      {system.fleetStatus && (
+        <div style={{ marginBottom: '16px', color: '#bbb' }}>{system.fleetStatus}</div>
+      )}
+      {system.fleetPrompt && (
+        <div style={{ marginBottom: '16px', color: '#bbb' }}>
+          Select an adjacent system to move
         </div>
       )}
       <div style={{ marginBottom: '16px', color: '#bbb' }}>

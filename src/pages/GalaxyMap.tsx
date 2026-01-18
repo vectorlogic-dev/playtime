@@ -3,7 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { supabase, IS_DEV } from '@/lib/supabase';
 import { MapCanvas } from '@/components/MapCanvas';
 import { SystemPanel } from '@/components/SystemPanel';
-import type { GameState, System, Viewport } from '@/lib/types';
+import type { GameState, System, Viewport, PlayerFleet } from '@/lib/types';
+import { getAdjacentSystems } from '@/game/galaxy';
 import { simulateTick } from '@/game/mockTick';
 import {
   devGalaxy,
@@ -32,9 +33,12 @@ export function GalaxyMap() {
   });
   const [viewport, setViewport] = useState<Viewport>({ x: 0, y: 0, zoom: 1 });
   const [selectedSystemId, setSelectedSystemId] = useState<string | null>(null);
+  const [fleetSelected, setFleetSelected] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [user, setUser] = useState<any>(null);
+  const [fleet, setFleet] = useState<PlayerFleet | null>(devFleets[0] ?? null);
+  const [nowMs, setNowMs] = useState(() => Date.now());
 
   useEffect(() => {
     if (!supabase) {
@@ -155,14 +159,80 @@ export function GalaxyMap() {
     }
   };
 
-  const handleSystemSelect = useCallback((system: System | null) => {
-    setSelectedSystemId(system?.id ?? null);
-  }, []);
+  const handleSystemSelect = useCallback(
+    (system: System | null) => {
+      if (!system) {
+        setSelectedSystemId(null);
+        setFleetSelected(false);
+        return;
+      }
+
+      if (fleet && system.id === fleet.locationSystemId) {
+        setSelectedSystemId(system.id);
+        setFleetSelected(true);
+        return;
+      }
+
+      if (fleetSelected && fleet) {
+        if (fleet.inTransit) {
+          setSelectedSystemId(system.id);
+          return;
+        }
+        const adjacent = getAdjacentSystems(fleet.locationSystemId, gameState.lanes);
+        if (!adjacent.includes(system.id)) return;
+        const fromSystem = gameState.systems.find((s) => s.id === fleet.locationSystemId);
+        const toSystem = gameState.systems.find((s) => s.id === system.id);
+        if (!fromSystem || !toSystem) return;
+        const dist = Math.hypot(toSystem.x - fromSystem.x, toSystem.y - fromSystem.y);
+        const travelMs = Math.max(1500, Math.min(6000, dist * 8));
+        const departAt = Date.now();
+        setFleet({
+          ...fleet,
+          inTransit: true,
+          fromSystemId: fleet.locationSystemId,
+          toSystemId: system.id,
+          departAt,
+          arriveAt: departAt + travelMs,
+        });
+        setSelectedSystemId(system.id);
+        setFleetSelected(false);
+        return;
+      }
+
+      setSelectedSystemId(system.id);
+    },
+    [fleet, fleetSelected, gameState.lanes]
+  );
 
   const handleMockTick = useCallback(() => {
     const updatedState = simulateTick(gameState);
     setGameState(updatedState);
   }, [gameState]);
+
+  useEffect(() => {
+    if (!fleet?.inTransit) return;
+    let frame = 0;
+    const tick = () => {
+      setNowMs(Date.now());
+      frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [fleet?.inTransit]);
+
+  useEffect(() => {
+    if (!fleet?.inTransit || !fleet.arriveAt || !fleet.toSystemId) return;
+    if (nowMs < fleet.arriveAt) return;
+    setFleet({
+      ...fleet,
+      locationSystemId: fleet.toSystemId,
+      inTransit: false,
+      fromSystemId: undefined,
+      toSystemId: undefined,
+      departAt: undefined,
+      arriveAt: undefined,
+    });
+  }, [fleet, nowMs]);
 
   if (loading) {
     return (
@@ -226,10 +296,14 @@ export function GalaxyMap() {
       )
     : false;
 
-  const fleetsForCanvas = supabase ? [] : devFleets;
+  const fleetsForCanvas = fleet ? [fleet] : [];
   const fleetAtSystem = selectedSystem
     ? fleetsForCanvas.find((fleet) => fleet.locationSystemId === selectedSystem.id) || null
     : null;
+  const adjacentTargets =
+    fleetSelected && fleet && !fleet.inTransit
+      ? getAdjacentSystems(fleet.locationSystemId, gameState.lanes)
+      : [];
 
   const panelSystem = selectedSystem
     ? {
@@ -241,6 +315,14 @@ export function GalaxyMap() {
         yields: selectedSystem.yields ?? { energy: 0, minerals: 0, science: 0 },
         planetCount: selectedSystem.planetCount ?? 0,
         fleetStrength: fleetAtSystem ? fleetAtSystem.strength : null,
+        fleetPrompt: fleetSelected && !fleet?.inTransit,
+        fleetStatus:
+          fleetSelected && fleet?.inTransit && fleet.arriveAt
+            ? `Fleet in transit (ETA: ${Math.max(
+                0,
+                Math.ceil((fleet.arriveAt - nowMs) / 1000)
+              )}s)`
+            : null,
       }
     : null;
 
@@ -277,13 +359,14 @@ export function GalaxyMap() {
             lanes={gameState.lanes}
             ownership={gameState.ownership}
             fleets={fleetsForCanvas}
+            nowMs={nowMs}
             viewport={viewport}
             onViewportChange={setViewport}
             onSystemSelect={handleSystemSelect}
             selectedSystemId={selectedSystemId}
             playerColor={gameState.currentPlayer?.color || null}
             playerId={user?.id ?? devPlayerId}
-            highlightSystemIds={[]}
+            highlightSystemIds={adjacentTargets}
           />
         </div>
       </div>

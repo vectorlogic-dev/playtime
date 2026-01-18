@@ -50,6 +50,11 @@ export type PlayerFleet = {
   owner: 'player';
   locationSystemId: string;
   strength: number;
+  inTransit?: boolean;
+  fromSystemId?: string;
+  toSystemId?: string;
+  departAt?: number;
+  arriveAt?: number;
 };
 
 export interface PlayerState {

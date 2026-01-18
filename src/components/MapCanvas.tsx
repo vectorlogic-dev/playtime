@@ -6,6 +6,7 @@ interface MapCanvasProps {
   lanes: Lane[];
   ownership: Ownership[];
   fleets: PlayerFleet[];
+  nowMs: number;
   viewport: Viewport;
   onViewportChange: (viewport: Viewport) => void;
   onSystemSelect: (system: System | null) => void;
@@ -36,6 +37,7 @@ export function MapCanvas({
   lanes,
   ownership,
   fleets,
+  nowMs,
   viewport,
   onViewportChange,
   onSystemSelect,
@@ -144,11 +146,41 @@ export function MapCanvas({
 
     // Draw fleets
     for (const fleet of fleetsSafe) {
-      const system = systems.find((s) => s.id === fleet.locationSystemId);
-      if (!system) continue;
+      let fx = 0;
+      let fy = 0;
+      let hasPosition = false;
+
+      if (
+        fleet.inTransit &&
+        fleet.fromSystemId &&
+        fleet.toSystemId &&
+        fleet.departAt &&
+        fleet.arriveAt
+      ) {
+        const fromSystem = systems.find((s) => s.id === fleet.fromSystemId);
+        const toSystem = systems.find((s) => s.id === fleet.toSystemId);
+        if (fromSystem && toSystem) {
+          const t = Math.min(
+            1,
+            Math.max(0, (nowMs - fleet.departAt) / (fleet.arriveAt - fleet.departAt))
+          );
+          fx = fromSystem.x + (toSystem.x - fromSystem.x) * t;
+          fy = fromSystem.y + (toSystem.y - fromSystem.y) * t;
+          hasPosition = true;
+        }
+      } else {
+        const system = systems.find((s) => s.id === fleet.locationSystemId);
+        if (system) {
+          fx = system.x;
+          fy = system.y;
+          hasPosition = true;
+        }
+      }
+
+      if (!hasPosition) continue;
       ctx.fillStyle = FLEET_MARKER_COLOR;
       ctx.beginPath();
-      ctx.arc(system.x, system.y, 5 / viewport.zoom, 0, Math.PI * 2);
+      ctx.arc(fx, fy, 5 / viewport.zoom, 0, Math.PI * 2);
       ctx.fill();
     }
 
@@ -158,6 +190,7 @@ export function MapCanvas({
     lanes,
     ownership,
     fleetsSafe,
+    nowMs,
     viewport,
     selectedSystemId,
     playerColor,
